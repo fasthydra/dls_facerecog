@@ -199,7 +199,7 @@ class FaceDataset(Dataset):
             img_idx, label = self._get_balanced_idx(idx)
 
         # Получаем тензор изображения в зависимости от того, было ли оно в __init__ загружено в ОЗУ
-        if self.images:
+        if self.images is not None:
             image = self.images[img_idx]
         else:
             img_path = self.samples[img_idx][1]
@@ -209,8 +209,7 @@ class FaceDataset(Dataset):
 
         # Применение аугментаций
         if self.augmentations:
-            for augmentation in self.augmentations:
-                image = augmentation(image)
+            image = self.augmentations(image)
 
         # Удаление первой размерности, если она была добавлена
         if image.dim() > 3:
