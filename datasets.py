@@ -94,10 +94,9 @@ class FaceDataset(Dataset):
         else:
             self.device = None
 
+        self.images = None
         if self.device:
             self._load_images()
-        else:
-            self.images = None
 
         if self.balance_classes:
             self.augmentation_counts = self._calculate_augmentation_counts()
