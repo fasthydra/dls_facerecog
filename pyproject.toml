@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "facerecog"
+version = "0.1.0"
+description = ""
+authors = ["Aleksey <fasthydra@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+torch = "^2.1.1"
+ipython = "^8.18.1"
+numpy = "^1.26.2"
+pandas = "^2.1.3"
+pillow = "^10.2.0"
+torchvision = "^0.17.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.4"
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests"
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
