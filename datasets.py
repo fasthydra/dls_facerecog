@@ -79,7 +79,7 @@ class FaceDataset(Dataset):
                                в память соответствующего устройства
         :param batch_size: Размер батча для обработки изображений.
         """
-        self.samples = sample
+        self.sample = sample
         self.transform = transform
         self.augmentations = augmentations or []
         self.balance_classes = balance_classes
@@ -116,7 +116,7 @@ class FaceDataset(Dataset):
         :return: Словарь с количеством аугментаций для каждого класса.
         """
         class_counts = {}
-        for _, label in self.samples:
+        for _, label in self.sample:
             class_counts[label] = class_counts.get(label, 0) + 1
 
         max_count = max(class_counts.values())
@@ -129,13 +129,13 @@ class FaceDataset(Dataset):
         Загружает все изображения датасета в тензор, хранящийся на заданном устройстве.
         """
         temp_images = []
-        for i, (img_path, _) in enumerate(self.samples):
+        for i, (img_path, _) in enumerate(self.sample):
             image = Image.open(img_path).convert('RGB')
             if self.transform:
                 image = self.transform(image)
             temp_images.append(image.unsqueeze(0))  # Добавляем размерность батча
 
-            if (i + 1) % self.batch_size == 0 or (i + 1) == len(self.samples):
+            if (i + 1) % self.batch_size == 0 or (i + 1) == len(self.sample):
                 batch = torch.cat(temp_images, dim=0).to(self.device)
                 self.images = batch if self.images is None else torch.cat((self.images, batch), dim=0)
                 temp_images = []
@@ -154,9 +154,9 @@ class FaceDataset(Dataset):
         :return: Общее количество образцов в датасете.
         """
         if self.balance_classes:
-            return len(self.samples) + sum(self.augmentation_counts.values())
+            return len(self.sample) + sum(self.augmentation_counts.values())
         else:
-            return len(self.samples)
+            return len(self.sample)
 
     def _get_balanced_idx(self, idx):
         """
@@ -171,15 +171,15 @@ class FaceDataset(Dataset):
         # Проверяем, не пуст ли список
         if not classes_needing_augmentation:
             # Если все аугментации выполнены, возвращаем обычный образец
-            img_idx = idx % len(self.samples)
-            label = self.samples[img_idx][1]
+            img_idx = idx % len(self.sample)
+            label = self.sample[img_idx][1]
         else:
             # Случайно выбираем класс из этого списка
             label = random.choice(classes_needing_augmentation)
             self.augmentation_counts[label] -= 1
 
             # Выбираем случайный индекс изображения из этого класса
-            img_indices = [i for i, data in enumerate(self.samples) if data[1] == label]
+            img_indices = [i for i, data in enumerate(self.sample) if data[1] == label]
             img_idx = random.choice(img_indices)
 
         return img_idx, label
@@ -193,8 +193,8 @@ class FaceDataset(Dataset):
         """
 
         # Выбираем индекс изображения и метку с учетом балансировки классов
-        if idx < len(self.samples):
-            label = self.samples[idx][1]
+        if idx < len(self.sample):
+            label = self.sample[idx][1]
             img_idx = idx
         else:
             img_idx, label = self._get_balanced_idx(idx)
@@ -203,7 +203,7 @@ class FaceDataset(Dataset):
         if self.images is not None:
             image = self.images[img_idx]
         else:
-            img_path = self.samples[img_idx][1]
+            img_path = self.sample[img_idx][1]
             image = Image.open(img_path).convert('RGB')
             if self.transform:
                 image = self.transform(image)
