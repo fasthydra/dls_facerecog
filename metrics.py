@@ -1,4 +1,15 @@
-def compute_embeddings(model, images_list):
+import itertools
+import numpy as np
+
+from PIL import Image
+
+import torch
+import torch.nn.functional as F
+
+from pathlib import PosixPath
+
+
+def compute_embeddings(model, images_list, transform, device=None, batch_size=512):
     """
     compute embeddings from the trained model for list of images.
     params:
@@ -9,15 +20,11 @@ def compute_embeddings(model, images_list):
             names from images_list
     """
 
-    batch_size = 500
-
-    transform = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-    ])
+    if not device:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     face_images = [transform(Image.open(img_path).convert('RGB')) for img_path in images_list]
-    face_images = torch.stack(face_images).to(DEVICE)
+    face_images = torch.stack(face_images).to(device)
 
     model.eval()
 
@@ -30,17 +37,20 @@ def compute_embeddings(model, images_list):
 
     del face_images
 
-    if DEVICE.type == 'cuda':
+    if device.type == 'cuda':
         torch.cuda.empty_cache()
 
     return embeddings_list
 
 
-def compute_pairwise_similarities(embeddings_list, pairs_indices, batch_size=500):
+def compute_pairwise_similarities(embeddings_list, pairs_indices, normalize=False, batch_size=512):
+
     embeddings_tensor = torch.tensor(embeddings_list, dtype=torch.float32)
 
+    if normalize:
+        embeddings_tensor = F.normalize(embeddings_tensor, p=2, dim=1)
+
     # Разбивка списка пар на батчи
-    pairs_indices = np.array(pairs_indices)
     n_pairs = len(pairs_indices)
     pairwise_similarities = []
 
@@ -50,10 +60,10 @@ def compute_pairwise_similarities(embeddings_list, pairs_indices, batch_size=500
         vectors2 = embeddings_tensor[pairs_batch[:, 1]]
 
         # Вычисление сходства для каждой пары в батче
-        similarity_batch = torch.sum(vectors1 * vectors2, dim=1).numpy()
+        similarity_batch = torch.sum(vectors1 * vectors2, dim=1).tolist()
         pairwise_similarities.extend(similarity_batch)
 
-    return np.array(pairwise_similarities).tolist()
+    return pairwise_similarities
 
 
 def get_index_pairs_pos(query_dict, query_img_names):
@@ -61,8 +71,10 @@ def get_index_pairs_pos(query_dict, query_img_names):
 
     # Создаем словарь для быстрого поиска индекса по имени изображения
     if isinstance(query_img_names[0], PosixPath):
+        # в моих структурах в списке пути
         name_to_index = {file.name: idx for idx, file in enumerate(query_img_names)}
     else:
+        # а в тестах ноутбука - строки
         name_to_index = {name: idx for idx, name in enumerate(query_img_names)}
 
     for img_class, img_names in query_dict.items():
@@ -81,8 +93,10 @@ def get_index_pairs_neg(query_dict, query_img_names):
 
     # Создаем словарь для быстрого поиска индекса по имени изображения
     if isinstance(query_img_names[0], PosixPath):
+        # в моих структурах в списке пути
         name_to_index = {file.name: idx for idx, file in enumerate(query_img_names)}
     else:
+        # а в тестах ноутбука - строки
         name_to_index = {name: idx for idx, name in enumerate(query_img_names)}
 
     class_names = list(query_dict.keys())
@@ -103,7 +117,7 @@ def get_index_pairs_neg(query_dict, query_img_names):
     return cross_class_pairs
 
 
-def compute_cosine_query_pos(classes_dict, img_names, embeddings):
+def compute_cosine_query_pos(classes_dict, img_names, embeddings, normalize=False, batch_size=512):
     """
     compute cosine similarities between positive pairs from query (stage 1)
     params:
@@ -116,12 +130,12 @@ def compute_cosine_query_pos(classes_dict, img_names, embeddings):
                       to the same people from query list
     """
     pairs_indices = get_index_pairs_pos(classes_dict, img_names)
-    similarities = compute_pairwise_similarities(embeddings, pairs_indices)
+    similarities = compute_pairwise_similarities(embeddings, pairs_indices, normalize, batch_size)
 
     return similarities
 
 
-def compute_cosine_query_neg(classes_dict, img_names, embeddings):
+def compute_cosine_query_neg(classes_dict, img_names, embeddings, normalize=False, batch_size=512):
     """
     compute cosine similarities between negative pairs from query (stage 2)
     params:
@@ -134,12 +148,12 @@ def compute_cosine_query_neg(classes_dict, img_names, embeddings):
                       to different people from query list
     """
     pairs_indices = get_index_pairs_neg(classes_dict, img_names)
-    similarities = compute_pairwise_similarities(embeddings, pairs_indices)
+    similarities = compute_pairwise_similarities(embeddings, pairs_indices, normalize, batch_size)
 
     return similarities
 
 
-def compute_cosine_query_distractors(embeddings_1, embeddings_2):
+def compute_cosine_query_distractors(embeddings_1, embeddings_2, normalize=False, batch_size=512):
     """
     compute cosine similarities between negative pairs from query and distractors
     (stage 3)
@@ -165,13 +179,12 @@ def compute_cosine_query_distractors(embeddings_1, embeddings_2):
 
     embeddings = embeddings_1 + embeddings_2
 
-    similarities = compute_pairwise_similarities(embeddings, pairs_indices, batch_size=1000)
+    similarities = compute_pairwise_similarities(embeddings, pairs_indices, normalize, batch_size)
 
     return similarities
 
 
-def compute_ir(cosine_query_pos, cosine_query_neg, cosine_query_distractors,
-               fpr=0.1):
+def compute_ir(cosine_query_pos, cosine_query_neg, cosine_query_distractors, fpr=0.1):
     """
     compute identification rate using precomputer cosine similarities between pairs
     at given fpr
@@ -195,9 +208,6 @@ def compute_ir(cosine_query_pos, cosine_query_neg, cosine_query_distractors,
 
     true_positives = np.sum(cosine_query_pos > threshold_distance)
     total_positives = len(cosine_query_pos)
-    # print(threshold_distance)
-    # print(true_positives)
-    # print(total_positives)
     tpr = true_positives / total_positives
 
     return threshold_distance, tpr
