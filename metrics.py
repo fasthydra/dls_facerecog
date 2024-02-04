@@ -50,7 +50,7 @@ def compute_pairwise_similarities(embeddings_list, pairs_indices, normalize=Fals
     if normalize:
         embeddings_tensor = F.normalize(embeddings_tensor, p=2, dim=1)
 
-    # Разбивка списка пар на батчи
+    pairs_indices = np.array(pairs_indices)
     n_pairs = len(pairs_indices)
     pairwise_similarities = []
 
