@@ -34,3 +34,28 @@ class ArcFaceLoss(nn.Module):
         loss = F.cross_entropy(output, labels)
 
         return loss
+
+
+class TripletLoss(nn.Module):
+    def __init__(self, margin=1.0):
+        """
+        Инициализация триплет лосса.
+
+        :param margin: Порог (margin) для функции потерь.
+        """
+        super(TripletLoss, self).__init__()
+        self.margin = margin
+
+    def forward(self, anchor, positive, negative):
+        """
+        Расчет триплет лосса.
+
+        :param anchor: Тензор признаков анкора.
+        :param positive: Тензор признаков позитивного примера.
+        :param negative: Тензор признаков негативного примера.
+        :return: Значение триплет лосса.
+        """
+        distance_positive = (anchor - positive).pow(2).sum(1)
+        distance_negative = (anchor - negative).pow(2).sum(1)
+        losses = F.relu(distance_positive - distance_negative + self.margin)
+        return losses.mean()

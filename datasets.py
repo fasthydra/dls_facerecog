@@ -1,5 +1,6 @@
 import random
 import gc
+import pandas as pd
 from pathlib import Path
 from PIL import Image
 import torch
@@ -220,3 +221,48 @@ class FaceDataset(Dataset):
             image = self.normalize(image)
 
         return image, label
+
+
+class FaceDatasetTriplet(Dataset):
+    def __init__(self, face_dataset_tensor):
+        """
+        Инициализирует датасет для генерации триплетов, используя pandas DataFrame для управления данными.
+
+        :param face_dataset_tensor: Экземпляр класса FaceDatasetTensor, содержащий данные датасета.
+        """
+        self.dataset = face_dataset_tensor
+        # Создаем DataFrame из samples
+        self.labels = pd.DataFrame(self.dataset.sample, columns=['idx', 'label'])
+        self.labels['idx'] = self.labels.index
+
+    def __getitem__(self, index):
+        """
+        Возвращает триплет (анкор, позитив, негатив) по заданному индексу.
+
+        :param index: Индекс анкора.
+        :return: Триплет изображений (анкор, позитив, негатив).
+        """
+        anchor_idx, anchor_label = self.labels.iloc[index]
+
+        # Получаем позитивный пример (тот же класс, что и анкор)
+        pos_labels = self.labels[self.labels['label'] == anchor_label]
+        pos_idxs = pos_labels['idx'].tolist().remove(anchor_idx) # Удаляем индекс анкора
+        pos_idx = random.choice(pos_idxs)
+
+        # Получаем негативный пример (другой класс)
+        neg_labels = self.labels[self.labels['label'] != anchor_label]
+        neg_label = random.choice(neg_labels['label'].unique())
+        neg_idxs = self.labels[self.labels['label'] == neg_label]['idx'].tolist()
+        neg_idx = random.choice(neg_idxs)
+
+        anchor_img = self.dataset[anchor_idx][0]
+        pos_img = self.dataset[pos_idx][0]
+        neg_img = self.dataset[neg_idx][0]
+
+        return anchor_img, pos_img, neg_img
+
+    def __len__(self):
+        """
+        Возвращает общее количество изображений в датасете.
+        """
+        return len(self.labels)
