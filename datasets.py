@@ -139,11 +139,11 @@ class FaceDataset(Dataset):
                 batch = torch.cat(temp_images, dim=0).to(self.device)
                 self.images = batch if self.images is None else torch.cat((self.images, batch), dim=0)
                 temp_images = []
+
                 if self.device.type == 'cuda':
                     torch.cuda.empty_cache()
 
         gc.collect()
-
         if self.device.type == 'cuda':
             torch.cuda.empty_cache()
 

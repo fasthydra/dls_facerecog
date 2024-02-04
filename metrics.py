@@ -32,7 +32,10 @@ def compute_embeddings(model, images_list, transform, device=None, batch_size=51
     with torch.no_grad():
         for i in range(0, len(face_images), batch_size):
             batch = face_images[i:i + batch_size]
-            embeddings = model(batch, return_features=True)
+            try:
+                embeddings = model(batch, return_features=True)
+            except TypeError:
+                embeddings = model(batch)
             embeddings_list.extend(embeddings.cpu().tolist())
 
     del face_images
