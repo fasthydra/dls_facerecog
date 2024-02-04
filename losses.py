@@ -37,14 +37,16 @@ class ArcFaceLoss(nn.Module):
 
 
 class TripletLoss(nn.Module):
-    def __init__(self, margin=1.0):
+    def __init__(self, margin=1.0, eps=1e-6):
         """
         Инициализация триплет лосса.
 
         :param margin: Порог (margin) для функции потерь.
+        :param eps: Малое значение для обеспечения числовой стабильности.
         """
         super(TripletLoss, self).__init__()
         self.margin = margin
+        self.eps = eps
 
     def forward(self, anchor, positive, negative):
         """
@@ -55,7 +57,7 @@ class TripletLoss(nn.Module):
         :param negative: Тензор признаков негативного примера.
         :return: Значение триплет лосса.
         """
-        distance_positive = (anchor - positive).pow(2).sum(1)
-        distance_negative = (anchor - negative).pow(2).sum(1)
+        distance_positive = F.pairwise_distance(anchor, positive, 2).pow(2)
+        distance_negative = F.pairwise_distance(anchor, negative, 2).pow(2)
         losses = F.relu(distance_positive - distance_negative + self.margin)
         return losses.mean()
