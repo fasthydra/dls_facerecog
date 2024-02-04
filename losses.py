@@ -1,3 +1,8 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
 class ArcFaceLoss(nn.Module):
     def __init__(self, scale, margin):
         super(ArcFaceLoss, self).__init__()
