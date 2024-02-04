@@ -203,7 +203,7 @@ class FaceDataset(Dataset):
         if self.images is not None:
             image = self.images[img_idx]
         else:
-            img_path = self.sample[img_idx][1]
+            img_path = self.sample[img_idx][0]
             image = Image.open(img_path).convert('RGB')
             if self.transform:
                 image = self.transform(image)
