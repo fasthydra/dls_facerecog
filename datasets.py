@@ -246,7 +246,8 @@ class FaceDatasetTriplet(Dataset):
 
         # Получаем позитивный пример (тот же класс, что и анкор)
         pos_labels = self.labels[self.labels['label'] == anchor_label]
-        pos_idxs = pos_labels['idx'].tolist().remove(anchor_idx) # Удаляем индекс анкора
+        pos_idxs = pos_labels['idx'].tolist()
+        pos_idxs.remove(anchor_idx)  # Удаляем индекс анкора
         pos_idx = random.choice(pos_idxs)
 
         # Получаем негативный пример (другой класс)
